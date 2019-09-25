@@ -1,0 +1,54 @@
+Map:
+    cols: 16
+    rows: 16
+
+
+<Map>:
+    tile_container: tile_container
+
+    ScatterPlane:
+        id: scatter
+        scale_min: .75
+        scale_max: 2
+
+        MapGridLayout:
+            id: tile_container
+            map: root
+            scatter: scatter
+            cols: root.cols
+            rows: root.rows
+            size_hint: None, None
+            size: self.minimum_size
+
+
+<Tile>:
+    size_hint: None, None
+    size: self.map.tile_size if self.map else (0, 0)
+
+    canvas.before:
+        Color:
+            rgba:
+                (
+                (1, 1, 0, 1) if self.startpoint and self.endpoint
+                else (0, 1, 0, 1) if self.startpoint
+                else (1, 0, 0, 1) if self.endpoint
+                else (.5, .5, .5, 1) if self.block
+                else (0, 0, 0, 0)
+                )
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        Color:
+        Line:
+            points:
+                [int(coord) + .5 for coord in (
+                self.x, self.y,
+                self.x, self.top,
+                self.right, self.top,
+                self.right, self.y,
+                )]
+            close: True
+
+    Label:
+        text: '{}'.format(root.index)
+        pos_hint: {'center': (.5, .5)}
