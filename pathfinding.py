@@ -13,6 +13,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.widget import Widget
 
 
 Config.remove_option('input', '%(name)s')
@@ -25,6 +26,7 @@ class Map(FloatLayout):
 
     tile_data = ListProperty()
     tile_container = ObjectProperty()
+    tile_highlight = ObjectProperty()
 
     startpoint = NumericProperty(-1)
     endpoint = NumericProperty(-1)
@@ -47,6 +49,52 @@ class Map(FloatLayout):
             startpoint=self.update_pathfinding,
             endpoint=self.update_pathfinding,
         )
+        Window.bind(mouse_pos=self.update_tile_highlight)
+
+    def update_tile_highlight(self, window, pos):
+        pos = self.tile_container.to_widget(*pos)
+        tile = self.get_tile_at(*pos)
+        self.tile_highlight.index = tile['index'] if tile else None
+
+    def tile_coords(self, x, y):
+        container = self.tile_container
+        x, y = int(x), int(y)
+
+        if not (
+            0 < x < container.width
+        ) or not (
+            0 < y < container.height
+        ):
+            return None
+
+        col = int(x / container.width * self.cols)
+        row = int((container.height - y - 1) / container.height * self.rows)
+        return col, row
+
+    def tile_pos(self, x, y):
+        container = self.tile_container
+
+        if not (
+            0 <= x < self.cols
+        ) or not (
+            0 <= y < self.rows
+        ):
+            return None
+
+        return (
+            x * container.width / self.cols,
+            container.height
+            - (y + 1)  # y coord from top, pos from bottom
+            * container.height / self.rows,
+        )
+
+    def get_tile_at(self, x, y):
+        coords = self.tile_coords(x, y)
+
+        if not coords:
+            return None
+
+        return self.tile_data[coords[1] * self.cols + coords[0]]
 
     def create_tiles(self, *args):
         self.tile_data = tile_data = [
@@ -60,11 +108,15 @@ class Map(FloatLayout):
             for index in range(self.rows * self.cols)
         ]
 
-        if self.tile_container:
-            self.tile_container.clear_widgets()
+        tile_container = self.tile_container
 
-            for data in tile_data:
-                self.tile_container.add_widget(Tile(**data))
+        if not tile_container:
+            return
+
+        tile_container.clear_widgets()
+
+        for data in tile_data:
+            tile_container.add_widget(Tile(**data))
 
     def update_tiles(self, *args):
         data_length = len(self.tile_data)
@@ -83,6 +135,28 @@ class Map(FloatLayout):
         pass
 
 
+class TileHighlight(Widget):
+    index = NumericProperty(allownone=True)
+    map = ObjectProperty()
+    tile_container = ObjectProperty()
+
+    def on_index(self, _, index):
+        if index is None:
+            self.pos = 0, 0
+            self.size = 0, 0
+            return
+
+        container = self.tile_container
+
+        self.size = (
+            container.width / (container.cols or 1),
+            container.height / (container.rows or 1),
+        )
+
+        x, y = index % container.cols, index // container.cols
+        self.pos = self.map.tile_pos(x, y)
+
+
 class MapGridLayout(GridLayout):
     map = ObjectProperty()
 
@@ -99,7 +173,7 @@ class MapGridLayout(GridLayout):
 
                     if current_point != -1:
                         data[current_point][attribute] = False
-                        
+
                     setattr(self.map, attribute, index)
 
                     data[index][attribute] = True

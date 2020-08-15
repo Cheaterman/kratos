@@ -5,6 +5,7 @@ Map:
 
 <Map>:
     tile_container: tile_container
+    tile_highlight: tile_highlight
 
     ScatterPlane:
         id: scatter
@@ -19,6 +20,31 @@ Map:
             rows: root.rows
             size_hint: None, None
             size: self.minimum_size
+
+        TileHighlight:
+            id: tile_highlight
+            map: root
+            tile_container: tile_container
+            pos: 0, 0
+            size: 0, 0
+
+
+<TileHighlight>:
+    size_hint: None, None
+
+    canvas:
+        Color:
+            rgb: 0, .75, 0
+        Line:
+            width: 1.5
+            points:
+                [int(coord) + .5 for coord in (
+                self.x, self.y,
+                self.x, self.top,
+                self.right, self.top,
+                self.right, self.y,
+                )]
+            close: True
 
 
 <Tile>:
