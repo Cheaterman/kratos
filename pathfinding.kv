@@ -4,7 +4,7 @@ Map:
 
 
 <Map>:
-    tile_container: tile_container
+    scatter: scatter
     tile_highlight: tile_highlight
 
     ScatterPlane:
@@ -12,19 +12,23 @@ Map:
         scale_min: .75
         scale_max: 2
 
-        MapGridLayout:
-            id: tile_container
-            map: root
-            scatter: scatter
-            cols: root.cols
-            rows: root.rows
+        MapRecycleView:
+            data: root.tile_data
+            viewclass: 'Tile'
+            do_scroll_x: False
+            do_scroll_y: False
             size_hint: None, None
-            size: self.minimum_size
+            size: root.cols * root.tile_size[0], root.rows * root.tile_size[1]
+
+            MapGridLayout:
+                map: root
+                scatter: scatter
+                cols: root.cols
+                rows: root.rows
 
         TileHighlight:
             id: tile_highlight
             map: root
-            tile_container: tile_container
             pos: 0, 0
             size: 0, 0
 
@@ -47,20 +51,23 @@ Map:
             close: True
 
 
+<-MapRecycleView@RecycleView>:
+
+
 <Tile>:
+    color:
+        (
+        (1, 1, 0, 1) if self.startpoint and self.endpoint
+        else (0, 1, 0, 1) if self.startpoint
+        else (1, 0, 0, 1) if self.endpoint
+        else (.5, .5, .5, 1) if self.block
+        else (0, 0, 0, 0)
+        )
     size_hint: None, None
-    size: self.map.tile_size if self.map else (0, 0)
 
     canvas.before:
         Color:
-            rgba:
-                (
-                (1, 1, 0, 1) if self.startpoint and self.endpoint
-                else (0, 1, 0, 1) if self.startpoint
-                else (1, 0, 0, 1) if self.endpoint
-                else (.5, .5, .5, 1) if self.block
-                else (0, 0, 0, 0)
-                )
+            rgba: self.color
         Rectangle:
             pos: self.pos
             size: self.size

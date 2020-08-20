@@ -5,13 +5,13 @@ from kivy.clock import Clock
 from kivy.graphics.transformation import Matrix
 from kivy.properties import (
     BooleanProperty,
+    ColorProperty,
     ListProperty,
     NumericProperty,
     ObjectProperty,
 )
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.recycleview import RecycleView
+from kivy.uix.recyclegridlayout import RecycleGridLayout
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.widget import Widget
 
@@ -25,11 +25,11 @@ class Map(FloatLayout):
     rows = NumericProperty()
 
     tile_data = ListProperty()
-    tile_container = ObjectProperty()
+    scatter = ObjectProperty()
     tile_highlight = ObjectProperty()
 
-    startpoint = NumericProperty(-1)
-    endpoint = NumericProperty(-1)
+    startpoint = NumericProperty(None, allownone=True)
+    endpoint = NumericProperty(None, allownone=True)
 
     button_map = {
         'left': 'startpoint',
@@ -52,28 +52,31 @@ class Map(FloatLayout):
         Window.bind(mouse_pos=self.update_tile_highlight)
 
     def update_tile_highlight(self, window, pos):
-        pos = self.tile_container.to_widget(*pos)
-        tile = self.get_tile_at(*pos)
-        self.tile_highlight.index = tile['index'] if tile else None
+        pos = self.scatter.to_widget(*pos)
+        tile_coords = self.tile_coords(*pos)
+        self.tile_highlight.index = (
+            tile_coords[1] * self.cols + tile_coords[0]
+        ) if tile_coords else None
 
     def tile_coords(self, x, y):
-        container = self.tile_container
         x, y = int(x), int(y)
+        max_x, max_y = (
+            self.cols * self.tile_size[0],
+            self.rows * self.tile_size[1],
+        )
 
         if not (
-            0 < x < container.width
+            0 < x < max_x
         ) or not (
-            0 < y < container.height
+            0 < y < max_y
         ):
             return None
 
-        col = int(x / container.width * self.cols)
-        row = int((container.height - y - 1) / container.height * self.rows)
+        col = int(x / max_x * self.cols)
+        row = int((max_y - y - 1) / max_y * self.rows)
         return col, row
 
     def tile_pos(self, x, y):
-        container = self.tile_container
-
         if not (
             0 <= x < self.cols
         ) or not (
@@ -81,11 +84,15 @@ class Map(FloatLayout):
         ):
             return None
 
+        max_x, max_y = (
+            self.cols * self.tile_size[0],
+            self.rows * self.tile_size[1],
+        )
+
         return (
-            x * container.width / self.cols,
-            container.height
-            - (y + 1)  # y coord from top, pos from bottom
-            * container.height / self.rows,
+            x * max_x / self.cols,
+            max_y - (y + 1)  # y coord from top, pos from bottom
+            * max_y / self.rows,
         )
 
     def get_tile_at(self, x, y):
@@ -97,39 +104,15 @@ class Map(FloatLayout):
         return self.tile_data[coords[1] * self.cols + coords[0]]
 
     def create_tiles(self, *args):
-        self.tile_data = tile_data = [
+        self.tile_data = [
             {
-                'index': index,
                 'startpoint': False,
                 'endpoint': False,
                 'block': False,
-                'map': self,
+                'size': self.tile_size,
             }
-            for index in range(self.rows * self.cols)
+            for _ in range(self.rows * self.cols)
         ]
-
-        tile_container = self.tile_container
-
-        if not tile_container:
-            return
-
-        tile_container.clear_widgets()
-
-        for data in tile_data:
-            tile_container.add_widget(Tile(**data))
-
-    def update_tiles(self, *args):
-        data_length = len(self.tile_data)
-
-        for index, data in enumerate(self.tile_data):
-            target = self.tile_container.children[data_length - index - 1]
-
-            for attribute, value in data.items():
-                setattr(
-                    target,
-                    attribute,
-                    value
-                )
 
     def update_pathfinding(self, *args):
         pass
@@ -138,7 +121,6 @@ class Map(FloatLayout):
 class TileHighlight(Widget):
     index = NumericProperty(allownone=True)
     map = ObjectProperty()
-    tile_container = ObjectProperty()
 
     def on_index(self, _, index):
         if index is None:
@@ -146,48 +128,20 @@ class TileHighlight(Widget):
             self.size = 0, 0
             return
 
-        container = self.tile_container
-
-        self.size = (
-            container.width / (container.cols or 1),
-            container.height / (container.rows or 1),
-        )
-
-        x, y = index % container.cols, index // container.cols
-        self.pos = self.map.tile_pos(x, y)
+        map = self.map
+        self.size = map.tile_size
+        x, y = index % map.cols, index // map.cols
+        self.pos = map.tile_pos(x, y)
 
 
-class MapGridLayout(GridLayout):
+class MapGridLayout(RecycleGridLayout):
     map = ObjectProperty()
 
-    def handle_touch(self, index, touch):
-        if 'button' in touch.profile:
-            data = self.map.tile_data
-
-            for button, attribute in self.map.button_map.items():
-                if(
-                    touch.button == button
-                    and not data[index][attribute]
-                ):
-                    current_point = getattr(self.map, attribute)
-
-                    if current_point != -1:
-                        data[current_point][attribute] = False
-
-                    setattr(self.map, attribute, index)
-
-                    data[index][attribute] = True
-
-                    self.map.update_tiles()
-
-                    # XXX: Should be enabled but prevents scatter interaction
-                    #return True
-
     def on_touch_down(self, touch):
-        if(
-            'button' in touch.profile
-            and touch.button.startswith('scroll')
-        ):
+        if 'button' not in touch.profile:
+            return super().on_touch_down(touch)
+
+        if touch.button.startswith('scroll'):
             scatter = self.scatter
             scale_factor = min(scatter.scale_max, max(
                 scatter.scale_min,
@@ -201,24 +155,46 @@ class MapGridLayout(GridLayout):
             )
             return True
 
+        map = self.map
+
+        if touch.button in map.button_map:
+            tile_coords = map.tile_coords(*touch.pos)
+
+            if not tile_coords:
+                return
+
+            index = tile_coords[1] * map.cols + tile_coords[0]
+            attribute = map.button_map[touch.button]
+            tile_data = map.tile_data
+            new_tile = tile_data[index].copy()
+
+            if new_tile[attribute]:
+                return
+
+            current_index = getattr(map, attribute)
+
+            if current_index is not None:
+                tile_data[current_index][attribute] = False
+
+            setattr(map, attribute, index)
+
+            new_tile[attribute] = True
+            tile_data[index] = new_tile
+
         return super().on_touch_down(touch)
 
 
 class Tile(RecycleDataViewBehavior, FloatLayout):
-    map = ObjectProperty()
-
-    index = NumericProperty()
     startpoint = BooleanProperty(False)
     endpoint = BooleanProperty(False)
     block = BooleanProperty(False)
+    color = ColorProperty()
+
+    index = NumericProperty()
 
     def refresh_view_attrs(self, rv, index, data):
         self.index = index
         return super().refresh_view_attrs(rv, index, data)
-
-    def on_touch_down(self, touch):
-        if self.collide_point(*touch.pos):
-            return self.parent.handle_touch(self.index, touch)
 
 
 class PathFinding(App):
