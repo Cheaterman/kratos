@@ -13,7 +13,6 @@ from kivy.properties import (
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.recyclegridlayout import RecycleGridLayout
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
-from kivy.uix.widget import Widget
 
 
 Config.remove_option('input', '%(name)s')
@@ -52,13 +51,27 @@ class Map(FloatLayout):
         Window.bind(mouse_pos=self.update_tile_highlight)
 
     def update_tile_highlight(self, window, pos):
+        """Updates tile_highlight widget pos/size following mouse pos.
+
+        Hides tile_highlight widget if mouse pos is outside of map.
+        """
         pos = self.scatter.to_widget(*pos)
         tile_coords = self.tile_coords(*pos)
-        self.tile_highlight.index = (
-            tile_coords[1] * self.cols + tile_coords[0]
-        ) if tile_coords else None
+        tile_highlight = self.tile_highlight
+
+        if not tile_coords:
+            tile_highlight.pos = (0, 0)
+            tile_highlight.size = (0, 0)
+            return
+
+        tile_highlight.pos = self.tile_pos(*tile_coords)
+        tile_highlight.size = self.tile_size
 
     def tile_coords(self, x, y):
+        """Returns tile coordinates for tile under pixel (x, y).
+
+        Returns None if (x, y) isn't inside the map.
+        """
         x, y = int(x), int(y)
         max_x, max_y = (
             self.cols * self.tile_size[0],
@@ -77,6 +90,10 @@ class Map(FloatLayout):
         return col, row
 
     def tile_pos(self, x, y):
+        """Returns bottom-left pixel position for tile at (x, y).
+
+        Returns None if (x, y) isn't inside the map.
+        """
         if not (
             0 <= x < self.cols
         ) or not (
@@ -96,6 +113,10 @@ class Map(FloatLayout):
         )
 
     def get_tile_at(self, x, y):
+        """Returns tile data for tile under pixel (x, y).
+
+        Returns None if (x, y) isn't inside the map.
+        """
         coords = self.tile_coords(x, y)
 
         if not coords:
@@ -104,6 +125,11 @@ class Map(FloatLayout):
         return self.tile_data[coords[1] * self.cols + coords[0]]
 
     def create_tiles(self, *args):
+        """Creates dummy tile data for map according to size.
+
+        Will be revised later - we should give only color to tiles and
+        manage startpoint/endpoint/block internally instead.
+        """
         self.tile_data = [
             {
                 'startpoint': False,
@@ -115,23 +141,11 @@ class Map(FloatLayout):
         ]
 
     def update_pathfinding(self, *args):
+        """Calculates shortest path between startpoint and endpoint.
+
+        Displays result on map as colors if any path was found.
+        """
         pass
-
-
-class TileHighlight(Widget):
-    index = NumericProperty(allownone=True)
-    map = ObjectProperty()
-
-    def on_index(self, _, index):
-        if index is None:
-            self.pos = 0, 0
-            self.size = 0, 0
-            return
-
-        map = self.map
-        self.size = map.tile_size
-        x, y = index % map.cols, index // map.cols
-        self.pos = map.tile_pos(x, y)
 
 
 class MapGridLayout(RecycleGridLayout):
