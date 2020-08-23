@@ -147,53 +147,76 @@ class Map(FloatLayout):
         """
         pass
 
+    def handle_zoom(self, touch):
+        """Zooms scatter in/out if touch.button is scrollup/down.
 
-class MapGridLayout(RecycleGridLayout):
-    map = ObjectProperty()
+        Zooms from the center of the window and takes scatter.scale_min/max
+        into account.
+        Returns True if the touch was handled, None otherwise.
+        """
+        button = touch.button
+
+        if not button.startswith('scroll') or button[6:] not in ('up', 'down'):
+            return
+
+        scatter = self.scatter
+        scale_factor = min(scatter.scale_max, max(
+            scatter.scale_min,
+            scatter.scale + (
+                .1 if button.endswith('down') else -.1
+            )
+        )) / scatter.scale
+        scatter.apply_transform(
+            Matrix().scale(*(scale_factor for xyz in 'xyz')),
+            anchor=Window.center,
+        )
+        return True
+
+    def handle_buttons(self, touch):
+        """Sets startpoint/endpoint if touch.button is in button_map.
+
+        Takes touch.pos and scatter.pos into account, and does nothing if the
+        touch is outside the map or the tile under the cursor already has that
+        attribute.
+        Returns True if the touch was handled, None otherwise.
+        """
+        button = touch.button
+
+        if button not in self.button_map:
+            return
+
+        tile_coords = self.tile_coords(*self.scatter.to_widget(*touch.pos))
+
+        if not tile_coords:
+            return
+
+        index = tile_coords[1] * self.cols + tile_coords[0]
+        attribute = self.button_map[button]
+        tile_data = self.tile_data
+        new_tile = tile_data[index].copy()
+
+        if new_tile[attribute]:
+            return
+
+        current_index = getattr(self, attribute)
+
+        if current_index is not None:
+            tile_data[current_index][attribute] = False
+
+        setattr(self, attribute, index)
+
+        new_tile[attribute] = True
+        tile_data[index] = new_tile
+
+        return True
 
     def on_touch_down(self, touch):
-        if 'button' not in touch.profile:
-            return super().on_touch_down(touch)
+        if 'button' in touch.profile:
+            if self.handle_zoom(touch):
+                return True
 
-        if touch.button.startswith('scroll'):
-            scatter = self.scatter
-            scale_factor = min(scatter.scale_max, max(
-                scatter.scale_min,
-                scatter.scale + (
-                    .1 if touch.button.endswith('down') else -.1
-                )
-            )) / scatter.scale
-            scatter.apply_transform(
-                Matrix().scale(*(scale_factor for xyz in 'xyz')),
-                anchor=Window.center,
-            )
-            return True
-
-        map = self.map
-
-        if touch.button in map.button_map:
-            tile_coords = map.tile_coords(*touch.pos)
-
-            if not tile_coords:
-                return
-
-            index = tile_coords[1] * map.cols + tile_coords[0]
-            attribute = map.button_map[touch.button]
-            tile_data = map.tile_data
-            new_tile = tile_data[index].copy()
-
-            if new_tile[attribute]:
-                return
-
-            current_index = getattr(map, attribute)
-
-            if current_index is not None:
-                tile_data[current_index][attribute] = False
-
-            setattr(map, attribute, index)
-
-            new_tile[attribute] = True
-            tile_data[index] = new_tile
+            if self.handle_buttons(touch):
+                return True
 
         return super().on_touch_down(touch)
 

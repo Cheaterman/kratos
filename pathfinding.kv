@@ -20,20 +20,20 @@ Map:
             size_hint: None, None
             size: root.cols * root.tile_size[0], root.rows * root.tile_size[1]
 
-            MapGridLayout:
-                map: root
-                scatter: scatter
+            RecycleGridLayout:
                 cols: root.cols
                 rows: root.rows
 
         TileHighlight:
             id: tile_highlight
-            map: root
-            pos: 0, 0
-            size: 0, 0
+
+
+<-MapRecycleView@RecycleView>:
 
 
 <TileHighlight@Widget>:
+    pos: 0, 0
+    size: 0, 0
     size_hint: None, None
 
     canvas:
@@ -49,9 +49,6 @@ Map:
                 self.right, self.y,
                 )]
             close: True
-
-
-<-MapRecycleView@RecycleView>:
 
 
 <Tile>:
