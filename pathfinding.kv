@@ -52,14 +52,6 @@ Map:
 
 
 <Tile>:
-    color:
-        (
-        (1, 1, 0, 1) if self.startpoint and self.endpoint
-        else (0, 1, 0, 1) if self.startpoint
-        else (1, 0, 0, 1) if self.endpoint
-        else (.5, .5, .5, 1) if self.block
-        else (0, 0, 0, 0)
-        )
     size_hint: None, None
 
     canvas.before:
@@ -78,7 +70,3 @@ Map:
                 self.right, self.y,
                 )]
             close: True
-
-    Label:
-        text: '{}'.format(root.index)
-        pos_hint: {'center': (.5, .5)}

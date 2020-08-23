@@ -4,15 +4,13 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.graphics.transformation import Matrix
 from kivy.properties import (
-    BooleanProperty,
     ColorProperty,
     ListProperty,
     NumericProperty,
     ObjectProperty,
 )
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.recyclegridlayout import RecycleGridLayout
-from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.widget import Widget
 
 
 Config.remove_option('input', '%(name)s')
@@ -29,6 +27,7 @@ class Map(FloatLayout):
 
     startpoint = NumericProperty(None, allownone=True)
     endpoint = NumericProperty(None, allownone=True)
+    blocks = ListProperty()
 
     button_map = {
         'left': 'startpoint',
@@ -125,16 +124,10 @@ class Map(FloatLayout):
         return self.tile_data[coords[1] * self.cols + coords[0]]
 
     def create_tiles(self, *args):
-        """Creates dummy tile data for map according to size.
-
-        Will be revised later - we should give only color to tiles and
-        manage startpoint/endpoint/block internally instead.
-        """
+        """Creates dummy tile data for map according to cols/rows."""
         self.tile_data = [
             {
-                'startpoint': False,
-                'endpoint': False,
-                'block': False,
+                'color': (0, 0, 0, 0),
                 'size': self.tile_size,
             }
             for _ in range(self.rows * self.cols)
@@ -192,46 +185,49 @@ class Map(FloatLayout):
 
         index = tile_coords[1] * self.cols + tile_coords[0]
         attribute = self.button_map[button]
-        tile_data = self.tile_data
-        new_tile = tile_data[index].copy()
+        previous_index = getattr(self, attribute)
 
-        if new_tile[attribute]:
+        if previous_index == index:
             return
-
-        current_index = getattr(self, attribute)
-
-        if current_index is not None:
-            tile_data[current_index][attribute] = False
 
         setattr(self, attribute, index)
 
-        new_tile[attribute] = True
-        tile_data[index] = new_tile
+        if previous_index is not None:
+            self.update_tile_color(previous_index)
+
+        self.update_tile_color(index)
 
         return True
+
+    def update_tile_color(self, tile_index):
+        """Updates color for tile at tile_index according to start/endpoint.
+
+        Takes blocks into account.
+        """
+        tile_data = self.tile_data
+        tile = tile_data[tile_index].copy()
+        tile['color'] = (
+            (1, 1, 0, 1) if self.startpoint == self.endpoint == tile_index
+            else (0, 1, 0, 1) if self.startpoint == tile_index
+            else (1, 0, 0, 1) if self.endpoint == tile_index
+            else (.5, .5, .5, 1) if tile_index in self.blocks
+            else (0, 0, 0, 0)
+        )
+        tile_data[tile_index] = tile
 
     def on_touch_down(self, touch):
         if 'button' in touch.profile:
             if self.handle_zoom(touch):
                 return True
 
-            if self.handle_buttons(touch):
-                return True
+            # No return - we want to let scatter handle the touch
+            self.handle_buttons(touch)
 
         return super().on_touch_down(touch)
 
 
-class Tile(RecycleDataViewBehavior, FloatLayout):
-    startpoint = BooleanProperty(False)
-    endpoint = BooleanProperty(False)
-    block = BooleanProperty(False)
+class Tile(Widget):
     color = ColorProperty()
-
-    index = NumericProperty()
-
-    def refresh_view_attrs(self, rv, index, data):
-        self.index = index
-        return super().refresh_view_attrs(rv, index, data)
 
 
 class PathFinding(App):
