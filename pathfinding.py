@@ -23,16 +23,6 @@ class Map(FloatLayout):
 
     tile_data = ListProperty()
     scatter = ObjectProperty()
-    tile_highlight = ObjectProperty()
-
-    startpoint = NumericProperty(None, allownone=True)
-    endpoint = NumericProperty(None, allownone=True)
-    blocks = ListProperty()
-
-    button_map = {
-        'left': 'startpoint',
-        'right': 'endpoint',
-    }
 
     tile_size = (50, 50)
 
@@ -44,27 +34,7 @@ class Map(FloatLayout):
         self.bind(
             cols=trigger,
             rows=trigger,
-            startpoint=self.update_pathfinding,
-            endpoint=self.update_pathfinding,
         )
-        Window.bind(mouse_pos=self.update_tile_highlight)
-
-    def update_tile_highlight(self, window, pos):
-        """Updates tile_highlight widget pos/size following mouse pos.
-
-        Hides tile_highlight widget if mouse pos is outside of map.
-        """
-        pos = self.scatter.to_widget(*pos)
-        tile_coords = self.tile_coords(*pos)
-        tile_highlight = self.tile_highlight
-
-        if not tile_coords:
-            tile_highlight.pos = (0, 0)
-            tile_highlight.size = (0, 0)
-            return
-
-        tile_highlight.pos = self.tile_pos(*tile_coords)
-        tile_highlight.size = self.tile_size
 
     def tile_coords(self, x, y):
         """Returns tile coordinates for tile under pixel (x, y).
@@ -133,13 +103,6 @@ class Map(FloatLayout):
             for _ in range(self.rows * self.cols)
         ]
 
-    def update_pathfinding(self, *args):
-        """Calculates shortest path between startpoint and endpoint.
-
-        Displays result on map as colors if any path was found.
-        """
-        pass
-
     def handle_zoom(self, touch):
         """Zooms scatter in/out if touch.button is scrollup/down.
 
@@ -165,25 +128,93 @@ class Map(FloatLayout):
         )
         return True
 
+    def on_touch_down(self, touch):
+        if 'button' in touch.profile:
+            if self.handle_zoom(touch):
+                return True
+
+        return super().on_touch_down(touch)
+
+
+class Tile(Widget):
+    color = ColorProperty()
+
+
+class TileHighlight(Widget):
+    pass
+
+
+class PathFinding(App):
+    tile_highlight = ObjectProperty()
+
+    startpoint = NumericProperty(None, allownone=True)
+    endpoint = NumericProperty(None, allownone=True)
+    blocks = ListProperty()
+
+    button_map = {
+        'left': 'startpoint',
+        'right': 'endpoint',
+    }
+
+    def build(self):
+        self.map = map = self.root.map
+        map.bind(on_touch_down=lambda _, touch: self.handle_buttons(touch))
+        self.tile_highlight = tile_highlight = TileHighlight()
+        map.scatter.add_widget(tile_highlight)
+        self.bind(
+            startpoint=self.update_pathfinding,
+            endpoint=self.update_pathfinding,
+        )
+        Window.bind(mouse_pos=self.update_tile_highlight)
+
+    def update_tile_highlight(self, window, pos):
+        """Updates tile_highlight widget pos/size following mouse pos.
+
+        Hides tile_highlight widget if mouse pos is outside of map.
+        """
+        map = self.map
+        scatter = map.scatter
+        pos = scatter.to_widget(*pos)
+        tile_coords = map.tile_coords(*pos)
+        tile_highlight = self.tile_highlight
+
+        if not tile_coords:
+            tile_highlight.pos = (0, 0)
+            tile_highlight.size = (0, 0)
+            return
+
+        tile_highlight.pos = map.tile_pos(*tile_coords)
+        tile_highlight.size = map.tile_size
+
+    def update_pathfinding(self, *args):
+        """Calculates shortest path between startpoint and endpoint.
+
+        Displays result on map as colors if any path was found.
+        """
+        pass
+
     def handle_buttons(self, touch):
         """Sets startpoint/endpoint if touch.button is in button_map.
 
         Takes touch.pos and scatter.pos into account, and does nothing if the
         touch is outside the map or the tile under the cursor already has that
         attribute.
-        Returns True if the touch was handled, None otherwise.
         """
+        if 'button' not in touch.profile:
+            return
+
         button = touch.button
 
         if button not in self.button_map:
             return
 
-        tile_coords = self.tile_coords(*self.scatter.to_widget(*touch.pos))
+        map = self.map
+        tile_coords = map.tile_coords(*map.scatter.to_widget(*touch.pos))
 
         if not tile_coords:
             return
 
-        index = tile_coords[1] * self.cols + tile_coords[0]
+        index = tile_coords[1] * map.cols + tile_coords[0]
         attribute = self.button_map[button]
         previous_index = getattr(self, attribute)
 
@@ -197,14 +228,12 @@ class Map(FloatLayout):
 
         self.update_tile_color(index)
 
-        return True
-
     def update_tile_color(self, tile_index):
         """Updates color for tile at tile_index according to start/endpoint.
 
         Takes blocks into account.
         """
-        tile_data = self.tile_data
+        tile_data = self.map.tile_data
         tile = tile_data[tile_index].copy()
         tile['color'] = (
             (1, 1, 0, 1) if self.startpoint == self.endpoint == tile_index
@@ -214,24 +243,6 @@ class Map(FloatLayout):
             else (0, 0, 0, 0)
         )
         tile_data[tile_index] = tile
-
-    def on_touch_down(self, touch):
-        if 'button' in touch.profile:
-            if self.handle_zoom(touch):
-                return True
-
-            # No return - we want to let scatter handle the touch
-            self.handle_buttons(touch)
-
-        return super().on_touch_down(touch)
-
-
-class Tile(Widget):
-    color = ColorProperty()
-
-
-class PathFinding(App):
-    pass
 
 
 if __name__ == '__main__':

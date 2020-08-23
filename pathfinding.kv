@@ -1,11 +1,14 @@
-Map:
-    cols: 16
-    rows: 16
+FloatLayout:
+    map: map
+
+    Map:
+        id: map
+        cols: 16
+        rows: 16
 
 
 <Map>:
     scatter: scatter
-    tile_highlight: tile_highlight
 
     ScatterPlane:
         id: scatter
@@ -24,14 +27,11 @@ Map:
                 cols: root.cols
                 rows: root.rows
 
-        TileHighlight:
-            id: tile_highlight
-
 
 <-MapRecycleView@RecycleView>:
 
 
-<TileHighlight@Widget>:
+<TileHighlight>:
     pos: 0, 0
     size: 0, 0
     size_hint: None, None
