@@ -1,34 +1,12 @@
+#:import Map map.Map
+
+
 FloatLayout:
     map: map
 
-    Map:
+    MapView:
         id: map
-        cols: 16
-        rows: 16
-
-
-<Map>:
-    scatter: scatter
-
-    ScatterPlane:
-        id: scatter
-        scale_min: .75
-        scale_max: 2
-
-        MapRecycleView:
-            data: root.tile_data
-            viewclass: 'Tile'
-            do_scroll_x: False
-            do_scroll_y: False
-            size_hint: None, None
-            size: root.cols * root.tile_size[0], root.rows * root.tile_size[1]
-
-            RecycleGridLayout:
-                cols: root.cols
-                rows: root.rows
-
-
-<-MapRecycleView@RecycleView>:
+        map: Map()
 
 
 <TileHighlight>:
@@ -41,27 +19,6 @@ FloatLayout:
             rgb: 0, .75, 0
         Line:
             width: 1.5
-            points:
-                [int(coord) + .5 for coord in (
-                self.x, self.y,
-                self.x, self.top,
-                self.right, self.top,
-                self.right, self.y,
-                )]
-            close: True
-
-
-<Tile>:
-    size_hint: None, None
-
-    canvas.before:
-        Color:
-            rgba: self.color
-        Rectangle:
-            pos: self.pos
-            size: self.size
-        Color:
-        Line:
             points:
                 [int(coord) + .5 for coord in (
                 self.x, self.y,

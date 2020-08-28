@@ -1,0 +1,47 @@
+<MapView>:
+    scatter: scatter
+
+    ScatterPlane:
+        id: scatter
+        scale_min: .75
+        scale_max: 2
+
+        MapRecycleView:
+            data: root._tile_data
+            viewclass: 'Tile'
+            do_scroll_x: False
+            do_scroll_y: False
+            size_hint: None, None
+            size:
+                (
+                root.map.cols * root.tile_size[0],
+                root.map.rows * root.tile_size[1]
+                ) if root.map else (0, 0)
+
+            RecycleGridLayout:
+                cols: root.map.cols if root.map else 0
+                rows: root.map.rows if root.map else 0
+
+
+<-MapRecycleView@RecycleView>:
+
+
+<Tile>:
+    size_hint: None, None
+
+    canvas.before:
+        Color:
+            rgba: self.color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        Color:
+        Line:
+            points:
+                [int(coord) + .5 for coord in (
+                self.x, self.y,
+                self.x, self.top,
+                self.right, self.top,
+                self.right, self.y,
+                )]
+            close: True

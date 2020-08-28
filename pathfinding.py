@@ -1,143 +1,18 @@
 from kivy.app import App
 from kivy.config import Config
 from kivy.core.window import Window
-from kivy.clock import Clock
-from kivy.graphics.transformation import Matrix
 from kivy.properties import (
-    ColorProperty,
     ListProperty,
     NumericProperty,
     ObjectProperty,
 )
-from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.widget import Widget
+
+from map import MapView
 
 
 Config.remove_option('input', '%(name)s')
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
-
-
-class Map(FloatLayout):
-    cols = NumericProperty()
-    rows = NumericProperty()
-
-    tile_data = ListProperty()
-    scatter = ObjectProperty()
-
-    tile_size = (50, 50)
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._update_tiles_trigger = trigger = Clock.create_trigger(
-            self.create_tiles
-        )
-        self.bind(
-            cols=trigger,
-            rows=trigger,
-        )
-
-    def tile_coords(self, x, y):
-        """Returns tile coordinates for tile under pixel (x, y).
-
-        Returns None if (x, y) isn't inside the map.
-        """
-        x, y = int(x), int(y)
-        max_x, max_y = (
-            self.cols * self.tile_size[0],
-            self.rows * self.tile_size[1],
-        )
-
-        if not (
-            0 < x < max_x
-        ) or not (
-            0 < y < max_y
-        ):
-            return None
-
-        col = int(x / max_x * self.cols)
-        row = int((max_y - y - 1) / max_y * self.rows)
-        return col, row
-
-    def tile_pos(self, x, y):
-        """Returns bottom-left pixel position for tile at (x, y).
-
-        Returns None if (x, y) isn't inside the map.
-        """
-        if not (
-            0 <= x < self.cols
-        ) or not (
-            0 <= y < self.rows
-        ):
-            return None
-
-        max_x, max_y = (
-            self.cols * self.tile_size[0],
-            self.rows * self.tile_size[1],
-        )
-
-        return (
-            x * max_x / self.cols,
-            max_y - (y + 1)  # y coord from top, pos from bottom
-            * max_y / self.rows,
-        )
-
-    def get_tile_at(self, x, y):
-        """Returns tile data for tile under pixel (x, y).
-
-        Returns None if (x, y) isn't inside the map.
-        """
-        coords = self.tile_coords(x, y)
-
-        if not coords:
-            return None
-
-        return self.tile_data[coords[1] * self.cols + coords[0]]
-
-    def create_tiles(self, *args):
-        """Creates dummy tile data for map according to cols/rows."""
-        self.tile_data = [
-            {
-                'color': (0, 0, 0, 0),
-                'size': self.tile_size,
-            }
-            for _ in range(self.rows * self.cols)
-        ]
-
-    def handle_zoom(self, touch):
-        """Zooms scatter in/out if touch.button is scrollup/down.
-
-        Zooms from the center of the window and takes scatter.scale_min/max
-        into account.
-        Returns True if the touch was handled, None otherwise.
-        """
-        button = touch.button
-
-        if not button.startswith('scroll') or button[6:] not in ('up', 'down'):
-            return
-
-        scatter = self.scatter
-        scale_factor = min(scatter.scale_max, max(
-            scatter.scale_min,
-            scatter.scale + (
-                .1 if button.endswith('down') else -.1
-            )
-        )) / scatter.scale
-        scatter.apply_transform(
-            Matrix().scale(*(scale_factor for xyz in 'xyz')),
-            anchor=Window.center,
-        )
-        return True
-
-    def on_touch_down(self, touch):
-        if 'button' in touch.profile:
-            if self.handle_zoom(touch):
-                return True
-
-        return super().on_touch_down(touch)
-
-
-class Tile(Widget):
-    color = ColorProperty()
 
 
 class TileHighlight(Widget):
@@ -164,6 +39,7 @@ class PathFinding(App):
         self.bind(
             startpoint=self.update_pathfinding,
             endpoint=self.update_pathfinding,
+            blocks=self.update_pathfinding,
         )
         Window.bind(mouse_pos=self.update_tile_highlight)
 
@@ -209,12 +85,13 @@ class PathFinding(App):
             return
 
         map = self.map
+        map_model = map.map
         tile_coords = map.tile_coords(*map.scatter.to_widget(*touch.pos))
 
         if not tile_coords:
             return
 
-        index = tile_coords[1] * map.cols + tile_coords[0]
+        index = tile_coords[1] * map_model.cols + tile_coords[0]
         attribute = self.button_map[button]
         previous_index = getattr(self, attribute)
 
@@ -233,16 +110,17 @@ class PathFinding(App):
 
         Takes blocks into account.
         """
-        tile_data = self.map.tile_data
-        tile = tile_data[tile_index].copy()
-        tile['color'] = (
-            (1, 1, 0, 1) if self.startpoint == self.endpoint == tile_index
-            else (0, 1, 0, 1) if self.startpoint == tile_index
-            else (1, 0, 0, 1) if self.endpoint == tile_index
-            else (.5, .5, .5, 1) if tile_index in self.blocks
+        map, startpoint, endpoint, blocks = (
+            self.map, self.startpoint, self.endpoint, self.blocks
+        )
+        color = (
+            (1, 1, 0, 1) if startpoint == endpoint == tile_index
+            else (0, 1, 0, 1) if startpoint == tile_index
+            else (1, 0, 0, 1) if endpoint == tile_index
+            else (.5, .5, .5, 1) if tile_index in blocks
             else (0, 0, 0, 0)
         )
-        tile_data[tile_index] = tile
+        map.set_tile_at(tile_index, color=color)
 
 
 if __name__ == '__main__':
