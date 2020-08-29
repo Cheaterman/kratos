@@ -8,20 +8,15 @@ from kivy.properties import (
 )
 from kivy.uix.widget import Widget
 
-from map import MapView
+from map.tile_highlight import TileHighlight
+from map.view import MapView
 
 
 Config.remove_option('input', '%(name)s')
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
 
 
-class TileHighlight(Widget):
-    pass
-
-
 class PathFinding(App):
-    tile_highlight = ObjectProperty()
-
     startpoint = NumericProperty(None, allownone=True)
     endpoint = NumericProperty(None, allownone=True)
     blocks = ListProperty()
@@ -34,33 +29,12 @@ class PathFinding(App):
     def build(self):
         self.map = map = self.root.map
         map.bind(on_touch_down=lambda _, touch: self.handle_buttons(touch))
-        self.tile_highlight = tile_highlight = TileHighlight()
-        map.scatter.add_widget(tile_highlight)
+        TileHighlight(map=map)
         self.bind(
             startpoint=self.update_pathfinding,
             endpoint=self.update_pathfinding,
             blocks=self.update_pathfinding,
         )
-        Window.bind(mouse_pos=self.update_tile_highlight)
-
-    def update_tile_highlight(self, window, pos):
-        """Updates tile_highlight widget pos/size following mouse pos.
-
-        Hides tile_highlight widget if mouse pos is outside of map.
-        """
-        map = self.map
-        scatter = map.scatter
-        pos = scatter.to_widget(*pos)
-        tile_coords = map.tile_coords(*pos)
-        tile_highlight = self.tile_highlight
-
-        if not tile_coords:
-            tile_highlight.pos = (0, 0)
-            tile_highlight.size = (0, 0)
-            return
-
-        tile_highlight.pos = map.tile_pos(*tile_coords)
-        tile_highlight.size = map.tile_size
 
     def update_pathfinding(self, *args):
         """Calculates shortest path between startpoint and endpoint.

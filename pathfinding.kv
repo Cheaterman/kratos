@@ -1,4 +1,4 @@
-#:import Map map.Map
+#:import Map map.model.Map
 
 
 FloatLayout:
@@ -7,23 +7,3 @@ FloatLayout:
     MapView:
         id: map
         map: Map()
-
-
-<TileHighlight>:
-    pos: 0, 0
-    size: 0, 0
-    size_hint: None, None
-
-    canvas:
-        Color:
-            rgb: 0, .75, 0
-        Line:
-            width: 1.5
-            points:
-                [int(coord) + .5 for coord in (
-                self.x, self.y,
-                self.x, self.top,
-                self.right, self.top,
-                self.right, self.y,
-                )]
-            close: True
