@@ -9,7 +9,6 @@ class TileHighlight(Widget):
 
         Will attach to provided map argument (a MapView) if present.
         """
-
         super().__init__(**kwargs)
         self.map = None
 

@@ -1,19 +1,22 @@
 from kivy.app import App
 from kivy.config import Config
-from kivy.core.window import Window
 from kivy.properties import (
     ListProperty,
     NumericProperty,
-    ObjectProperty,
 )
-from kivy.uix.widget import Widget
 
 from map.tile_highlight import TileHighlight
-from map.view import MapView
 
 
 Config.remove_option('input', '%(name)s')
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
+
+
+def mix_colors(color_1, color_2):
+    """A _very_ naive color mixer (add + clamp for each channel)."""
+    return tuple(
+        min(1.0, c1 + c2) for c1, c2 in zip(color_1, color_2)
+    )
 
 
 class PathFinding(App):
@@ -24,6 +27,12 @@ class PathFinding(App):
     button_map = {
         'left': 'startpoint',
         'right': 'endpoint',
+    }
+
+    tile_colors = {
+        'startpoint': (0, 1, 0, 1),
+        'endpoint': (1, 0, 0, 1),
+        'block': (.5, .5, .5, 1),
     }
 
     def build(self):
@@ -84,17 +93,18 @@ class PathFinding(App):
 
         Takes blocks into account.
         """
-        map, startpoint, endpoint, blocks = (
-            self.map, self.startpoint, self.endpoint, self.blocks
-        )
-        color = (
-            (1, 1, 0, 1) if startpoint == endpoint == tile_index
-            else (0, 1, 0, 1) if startpoint == tile_index
-            else (1, 0, 0, 1) if endpoint == tile_index
-            else (.5, .5, .5, 1) if tile_index in blocks
-            else (0, 0, 0, 0)
-        )
-        map.set_tile_at(tile_index, color=color)
+        color = (0, 0, 0, 0)
+
+        if tile_index == self.startpoint:
+            color = mix_colors(color, self.tile_colors['startpoint'])
+
+        if tile_index == self.endpoint:
+            color = mix_colors(color, self.tile_colors['endpoint'])
+
+        if tile_index in self.blocks:
+            color = mix_colors(color, self.tile_colors['block'])
+
+        self.map.set_tile_at(tile_index, color=color)
 
 
 if __name__ == '__main__':
