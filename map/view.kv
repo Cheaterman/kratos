@@ -35,13 +35,3 @@
         Rectangle:
             pos: self.pos
             size: self.size
-        Color:
-        Line:
-            points:
-                [int(coord) + .5 for coord in (
-                self.x, self.y,
-                self.x, self.top,
-                self.right, self.top,
-                self.right, self.y,
-                )]
-            close: True

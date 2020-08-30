@@ -1,5 +1,6 @@
 from kivy.app import App
 from kivy.config import Config
+from kivy.core.window import Window
 from kivy.properties import (
     ListProperty,
     NumericProperty,
@@ -45,6 +46,11 @@ class PathFinding(App):
             endpoint=self.update_pathfinding,
             blocks=self.update_pathfinding,
         )
+        Window.bind(on_keyboard=self.handle_keyboard)
+
+    def handle_keyboard(self, _, key, scancode, codepoint, modifiers):
+        if key == 103:  # g
+            self.map.grid = not self.map.grid
 
     def update_pathfinding(self, *args):
         """Calculates shortest path between startpoint and endpoint.

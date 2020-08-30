@@ -1,7 +1,9 @@
 from kivy.core.window import Window
+from kivy.graphics import Color, InstructionGroup, Line
 from kivy.graphics.transformation import Matrix
 from kivy.lang import Builder
 from kivy.properties import (
+    BooleanProperty,
     ColorProperty,
     ListProperty,
     ObjectProperty,
@@ -27,10 +29,21 @@ class MapView(FloatLayout):
     (currently arbitrary - should be based on actual tilemap resolution)
     """
 
+    grid = BooleanProperty(False)
+    """Whether or not to draw tile boundaries on map as a grid.
+
+    Defaults to False.
+    """
+
     _tile_data = ListProperty()
     """Internal tile data, should be accessed through get/set_tile_at().
 
-    This is fed directly into RecycleView.data for rendering."""
+    This is fed directly into RecycleView.data for rendering.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._grid_instructions = None
 
     def on_map(self, _, map):
         """Creates tile data according to assigned map."""
@@ -41,6 +54,44 @@ class MapView(FloatLayout):
             }
             for _ in range(map.rows * map.cols)
         ]
+        if self._grid_instructions:
+            # Discard pre-computed results
+            self._grid_instructions = None
+
+    def _build_grid(self):
+        """Creates grid draw instructions according to current map."""
+        map = self.map
+        tile_size = self.tile_size
+        grid_instructions = InstructionGroup()
+        grid_instructions.add(Color())
+
+        for x in range(0, map.cols * tile_size[0] + 1, tile_size[0]):
+            grid_instructions.add(Line(points=(
+                x + .5, .5, x + .5, map.rows * tile_size[1] + .5
+            )))
+
+        for y in range(0, map.rows * tile_size[1] + 1, tile_size[1]):
+            grid_instructions.add(Line(points=(
+                .5, y + .5, map.cols * tile_size[0] + .5, y + .5
+            )))
+
+        self._grid_instructions = grid_instructions
+
+    def on_grid(self, _, grid):
+        """Adds and removes grid draw instructions to/from internal scatter.
+
+        Will create grid draw instructions if required.
+        """
+        canvas = self.scatter.canvas
+
+        if grid:
+            if not self._grid_instructions:
+                self._build_grid()
+
+            canvas.add(self._grid_instructions)
+
+        elif self._grid_instructions:
+            canvas.remove(self._grid_instructions)
 
     def tile_coords(self, x, y):
         """Returns tile coordinates for tile under pixel (x, y).
