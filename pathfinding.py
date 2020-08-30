@@ -27,6 +27,7 @@ class PathFinding(App):
     button_map = {
         'left': 'startpoint',
         'right': 'endpoint',
+        'middle': 'block',
     }
 
     tile_colors = {
@@ -76,15 +77,30 @@ class PathFinding(App):
 
         index = tile_coords[1] * map_model.cols + tile_coords[0]
         attribute = self.button_map[button]
-        previous_index = getattr(self, attribute)
+        extra_update_index = None
 
-        if previous_index == index:
-            return
+        if attribute == 'startpoint':
+            if self.startpoint == index:
+                self.startpoint = None
+            else:
+                extra_update_index = self.startpoint
+                self.startpoint = index
 
-        setattr(self, attribute, index)
+        elif attribute == 'endpoint':
+            if self.endpoint == index:
+                self.endpoint = None
+            else:
+                extra_update_index = self.endpoint
+                self.endpoint = index
 
-        if previous_index is not None:
-            self.update_tile_color(previous_index)
+        elif attribute == 'block':
+            if index in self.blocks:
+                self.blocks.remove(index)
+            else:
+                self.blocks.append(index)
+
+        if extra_update_index is not None:
+            self.update_tile_color(extra_update_index)
 
         self.update_tile_color(index)
 
